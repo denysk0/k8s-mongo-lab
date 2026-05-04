@@ -1,0 +1,66 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongo-init
+  namespace: mongo
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mongo-init
+          image: mongo:7.0
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+
+              HOSTS=(
+                "mongo-0.mongo.mongo.svc.cluster.local"
+                "mongo-1.mongo.mongo.svc.cluster.local"
+                "mongo-2.mongo.mongo.svc.cluster.local"
+              )
+
+              for host in "${HOSTS[@]}"; do
+                echo "waiting for ${host} availability..."
+                until mongosh --host "${host}" --quiet --eval "db.adminCommand('ping').ok" > /dev/null 2>&1; do
+                  echo "${host} not ready yet, waiting 3s..."
+                  sleep 3
+                done
+              done
+
+              echo "checking if replica set is initialized..."
+              STATUS=$(mongosh --host mongo-0.mongo.mongo.svc.cluster.local --quiet --eval "try { rs.status().ok } catch(e) { 0 }")
+
+              if [ "$STATUS" = "1" ]; then
+                echo "Replica set already exists, skip initialization."
+                exit 0
+              fi
+
+              echo "initializing replica set rs0..."
+              mongosh --host mongo-0.mongo.mongo.svc.cluster.local --quiet --eval '
+                rs.initiate({
+                  _id: "rs0",
+                  members: [
+                    { _id: 0, host: "mongo-0.mongo.mongo.svc.cluster.local:27017" },
+                    { _id: 1, host: "mongo-1.mongo.mongo.svc.cluster.local:27017" },
+                    { _id: 2, host: "mongo-2.mongo.mongo.svc.cluster.local:27017" }
+                  ]
+                })
+              '
+
+              echo "waiting for PRIMARY election..."
+              for i in $(seq 1 60); do
+                PRIMARY=$(mongosh --host mongo-0.mongo.mongo.svc.cluster.local --quiet --eval "try { const h = db.hello(); h.isWritablePrimary ? (h.me || '') : (h.primary || '') } catch(e) { '' }")
+                if [ -n "$PRIMARY" ]; then
+                  echo "Replica set PRIMARY is ${PRIMARY}"
+                  exit 0
+                fi
+                echo "PRIMARY not elected yet, waiting 2s... (${i}/60)"
+                sleep 2
+              done
+
+              echo "Timed out waiting for PRIMARY election" >&2
+              exit 1

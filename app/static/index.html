@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MongoBank — K8s + MongoDB HA Lab</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">🏦 <strong>MongoBank</strong> <span class="subtle">— Kubernetes + MongoDB HA lab</span></div>
+  <div id="status-badge" class="status-badge status-unknown">
+    <span class="dot"></span>
+    <span>PRIMARY: <span id="primary-name">…</span></span>
+    <span class="sep">·</span>
+    <span>Latency: <span id="latency">–</span> ms</span>
+    <span class="sep">·</span>
+    <span>Mode: <span id="conn-mode">–</span></span>
+  </div>
+</header>
+
+<main class="grid">
+
+  <section class="panel" id="accounts-panel">
+    <h2>Accounts</h2>
+    <table class="tbl">
+      <thead><tr><th>ID</th><th>Owner</th><th class="num">Balance</th><th>Cur</th></tr></thead>
+      <tbody id="accounts-tbody"></tbody>
+    </table>
+  </section>
+
+  <section class="panel" id="transfer-panel">
+    <h2>New transfer</h2>
+    <div class="form">
+      <label>From <select id="f-from"></select></label>
+      <label>To <select id="f-to"></select></label>
+      <label>Amount <input id="f-amount" type="number" value="100" min="1"></label>
+      <label>Title <input id="f-title" type="text" value="Test transfer"></label>
+      <div class="mode-switch">
+        <label><input type="radio" name="mode" value="auto" checked> Auto</label>
+        <label><input type="radio" name="mode" value="step-tx"> Step (with tx)</label>
+        <label><input type="radio" name="mode" value="step-no-tx"> Step (NO tx)</label>
+      </div>
+      <button id="btn-send" class="btn primary">Send</button>
+    </div>
+  </section>
+
+  <section class="panel wide" id="flow-panel">
+    <h2>Transaction flow</h2>
+    <div id="flow-controls" class="flow-controls hidden">
+      <button id="btn-next" class="btn primary">Next step ▶</button>
+      <button id="btn-abort" class="btn danger">Abort ✖</button>
+      <span id="flow-mode-label" class="flow-mode"></span>
+    </div>
+    <ol id="flow-steps"></ol>
+    <div id="flow-log" class="flow-log"></div>
+  </section>
+
+  <section class="panel" id="mini-panel">
+    <h2>Live balances</h2>
+    <div id="mini-body" class="mini-body subtle">No active step-transfer.</div>
+  </section>
+
+  <section class="panel wide" id="k8s-panel">
+    <h2>Kubernetes control</h2>
+    <div class="btn-row">
+      <button class="btn" data-k="get-pods">Get Pods</button>
+      <button class="btn" data-k="get-nodes">Get Nodes</button>
+      <button class="btn" data-k="rs-status">RS Status</button>
+      <button class="btn danger" data-k="kill-primary">⚠ Kill PRIMARY</button>
+      <button class="btn danger" data-k="kill-mongo-0">Kill mongo-0</button>
+      <button class="btn danger" data-k="kill-mongo-1">Kill mongo-1</button>
+      <button class="btn danger" data-k="kill-mongo-2">Kill mongo-2</button>
+      <button class="btn warn" data-k="stop-worker2">Stop worker2</button>
+      <button class="btn" data-k="start-worker2">Start worker2</button>
+    </div>
+    <pre id="kubectl-out" class="terminal">$ kubectl ...</pre>
+  </section>
+
+  <section class="panel" id="auto-panel">
+    <h2>Auto traffic</h2>
+    <div class="btn-row">
+      <button id="btn-auto-start" class="btn primary">Start traffic</button>
+      <button id="btn-auto-stop"  class="btn">Stop</button>
+    </div>
+    <div class="mini-body">Sent: <strong id="auto-sent">0</strong> · Failed: <strong id="auto-failed">0</strong> · <span id="auto-running" class="subtle">idle</span></div>
+    <label class="mini-body" style="display:flex;align-items:center;gap:6px;margin-top:8px;">
+      <input type="checkbox" id="cb-retry" checked>
+      Auto-retry on transient errors
+    </label>
+  </section>
+
+  <section class="panel wide" id="history-panel">
+    <h2>Recent transactions</h2>
+    <table class="tbl">
+      <thead><tr>
+        <th>Time</th><th>From</th><th>To</th><th class="num">Amount</th><th>Title</th><th>Handled by</th>
+      </tr></thead>
+      <tbody id="history-tbody"></tbody>
+    </table>
+  </section>
+
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
